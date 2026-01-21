@@ -1,0 +1,43 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - revive
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - errcheck
+    - gosec
+    - gocyclo
+    - goimports
+  disable:
+    - structcheck
+    - unused
+
+linters-settings:
+  govet:
+    enable-all: true
+  gocyclo:
+    min-complexity: 15
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+      - name: var-naming
+        severity: warning
+      - name: blank-imports
+        severity: warning
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: false
