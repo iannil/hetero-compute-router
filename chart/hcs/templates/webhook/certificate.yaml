@@ -1,0 +1,32 @@
+{{- if and .Values.webhook.enabled .Values.webhook.certManager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "hcs.webhook.certificateName" . }}
+  namespace: {{ include "hcs.namespace" . }}
+  labels:
+    {{- include "hcs.webhook.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "hcs.webhook.tlsSecretName" . }}
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+      - hcs
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+  dnsNames:
+    - {{ include "hcs.webhook.serviceName" . }}
+    - {{ include "hcs.webhook.serviceName" . }}.{{ include "hcs.namespace" . }}
+    - {{ include "hcs.webhook.serviceName" . }}.{{ include "hcs.namespace" . }}.svc
+    - {{ include "hcs.webhook.serviceName" . }}.{{ include "hcs.namespace" . }}.svc.cluster.local
+  issuerRef:
+    name: {{ include "hcs.fullname" . }}-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+{{- end }}

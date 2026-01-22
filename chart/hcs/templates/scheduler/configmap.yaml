@@ -1,0 +1,53 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hcs.fullname" . }}-scheduler-config
+  namespace: {{ include "hcs.namespace" . }}
+  labels:
+    {{- include "hcs.scheduler.labels" . | nindent 4 }}
+data:
+  scheduler-config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1
+    kind: KubeSchedulerConfiguration
+    leaderElection:
+      leaderElect: {{ .Values.scheduler.leaderElection.enabled }}
+      resourceNamespace: {{ include "hcs.namespace" . }}
+      resourceName: {{ include "hcs.fullname" . }}-scheduler
+    profiles:
+      - schedulerName: hcs-scheduler
+        plugins:
+          filter:
+            enabled:
+              - name: HCSFilter
+          score:
+            enabled:
+              - name: HCSScore
+                weight: 100
+              - name: HCSTopologyScore
+                weight: 50
+              - name: HCSFragmentationScore
+                weight: 30
+          reserve:
+            enabled:
+              - name: HCSReserve
+        pluginConfig:
+          - name: HCSFilter
+            args:
+              enableVRAMCheck: true
+              enableTFLOPSCheck: true
+          - name: HCSScore
+            args:
+              # Exchange rate configuration for heterogeneous compute equivalence
+              exchangeRates:
+                {{- toYaml .Values.scheduler.exchangeRates | nindent 16 }}
+          - name: HCSTopologyScore
+            args:
+              # Prefer nodes with high-speed interconnects
+              preferNVLink: true
+              preferHCCS: true
+          - name: HCSFragmentationScore
+            args:
+              # Optimize for cluster utilization
+              enableBinPacking: {{ .Values.scheduler.binPacking.enabled }}
+{{- end }}

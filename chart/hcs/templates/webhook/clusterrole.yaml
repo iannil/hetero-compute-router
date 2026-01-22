@@ -1,0 +1,33 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "hcs.fullname" . }}-webhook
+  labels:
+    {{- include "hcs.webhook.labels" . | nindent 4 }}
+rules:
+  # Read pods for mutation decisions
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Read ComputeNode resources for injection decisions
+  - apiGroups: ["hetero.zrs.io"]
+    resources: ["computenodes"]
+    verbs: ["get", "list", "watch"]
+  # Read nodes for topology information
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Read namespaces for policy decisions
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  # Read ConfigMaps for configuration
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # Create events for debugging
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+{{- end }}

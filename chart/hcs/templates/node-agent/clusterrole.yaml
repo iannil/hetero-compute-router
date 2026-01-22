@@ -1,0 +1,28 @@
+{{- if .Values.nodeAgent.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "hcs.fullname" . }}-node-agent
+  labels:
+    {{- include "hcs.nodeAgent.labels" . | nindent 4 }}
+rules:
+  # Read node information
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Manage ComputeNode resources
+  - apiGroups: ["hetero.zrs.io"]
+    resources: ["computenodes"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["hetero.zrs.io"]
+    resources: ["computenodes/status"]
+    verbs: ["get", "update", "patch"]
+  # Read ConfigMaps for configuration
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # Create events for debugging
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+{{- end }}

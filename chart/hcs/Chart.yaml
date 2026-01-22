@@ -1,0 +1,33 @@
+apiVersion: v2
+name: hcs
+description: Hetero-Compute-Router - Kubernetes heterogeneous compute virtualization and adaptation layer
+
+type: application
+
+version: 0.1.0
+
+appVersion: "0.4.0"
+
+home: https://github.com/zrs-products/hetero-compute-router
+
+maintainers:
+  - name: HCS Team
+    email: hcs@zrs.io
+
+keywords:
+  - gpu
+  - ai
+  - heterogeneous-computing
+  - nvidia
+  - huawei-ascend
+  - hygon-dcu
+  - cambricon
+  - scheduler
+  - webhook
+
+sources:
+  - https://github.com/zrs-products/hetero-compute-router
+
+annotations:
+  artifacthub.io/category: machine-learning
+  artifacthub.io/license: Apache-2.0

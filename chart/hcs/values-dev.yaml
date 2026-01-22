@@ -1,0 +1,51 @@
+# Development environment values for HCS
+# Usage: helm install hcs chart/hcs -f chart/hcs/values-dev.yaml
+
+global:
+  namespace: hcs-dev
+
+nodeAgent:
+  logLevel: debug
+  reportInterval: 10
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+scheduler:
+  replicas: 1
+  logLevel: debug
+  leaderElection:
+    enabled: false  # Single replica, no need for leader election
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+webhook:
+  replicas: 1
+  logLevel: debug
+  failurePolicy: Ignore  # Don't block pod creation in dev
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+interceptor:
+  enabled: true
+
+# Disable monitoring in dev
+serviceMonitor:
+  enabled: false
+
+networkPolicy:
+  enabled: false

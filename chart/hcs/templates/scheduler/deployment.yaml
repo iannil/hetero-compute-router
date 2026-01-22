@@ -1,0 +1,74 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hcs.fullname" . }}-scheduler
+  namespace: {{ include "hcs.namespace" . }}
+  labels:
+    {{- include "hcs.scheduler.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.scheduler.replicas }}
+  selector:
+    matchLabels:
+      {{- include "hcs.scheduler.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hcs.scheduler.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/scheduler/configmap.yaml") . | sha256sum | default "none" }}
+    spec:
+      {{- include "hcs.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "hcs.scheduler.serviceAccountName" . }}
+      {{- if .Values.podSecurityStandards.securityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityStandards.securityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: scheduler
+          image: {{ include "hcs.scheduler.image" . }}
+          imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
+          args:
+            - --config=/etc/hcs/scheduler-config.yaml
+            - --log-level={{ .Values.scheduler.logLevel }}
+          ports:
+            - name: http
+              containerPort: 10259
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10259
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 10259
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/hcs
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "hcs.fullname" . }}-scheduler-config
+      {{- with .Values.scheduler.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scheduler.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scheduler.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

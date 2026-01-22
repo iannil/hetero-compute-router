@@ -1,0 +1,57 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "hcs.fullname" . }}-scheduler
+  labels:
+    {{- include "hcs.scheduler.labels" . | nindent 4 }}
+rules:
+  # Read nodes for scheduling decisions
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Read pods for scheduling
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Update pod status after scheduling
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["patch", "update"]
+  # Create bindings for pod scheduling
+  - apiGroups: [""]
+    resources: ["bindings", "pods/binding"]
+    verbs: ["create"]
+  # Read ComputeNode resources for heterogeneous scheduling
+  - apiGroups: ["hetero.zrs.io"]
+    resources: ["computenodes"]
+    verbs: ["get", "list", "watch"]
+  # Read namespaces for pod filtering
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  # Read PersistentVolumeClaims for storage-aware scheduling
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims", "persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  # Read storage classes
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "csinodes"]
+    verbs: ["get", "list", "watch"]
+  # Read ReplicaSets for owner references
+  - apiGroups: ["apps"]
+    resources: ["replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  # Create events for debugging
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch", "update"]
+  # Coordinate scheduling with lease
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Read ConfigMaps for configuration
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+{{- end }}

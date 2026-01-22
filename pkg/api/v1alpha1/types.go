@@ -6,7 +6,14 @@ import (
 )
 
 // +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster,shortName=cn
+// +kubebuilder:printcolumn:name="Vendor",type=string,JSONPath=`.spec.vendor`
+// +kubebuilder:printcolumn:name="Node",type=string,JSONPath=`.spec.nodeName`
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="VRAM",type=integer,JSONPath=`.spec.totalCapacity.vram`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ComputeNode is the Schema for the computenodes API
 type ComputeNode struct {
@@ -121,7 +128,7 @@ const (
 	ComputeNodeConditionHealthy ComputeNodeConditionType = "Healthy"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // ComputeNodeList contains a list of ComputeNode
 type ComputeNodeList struct {

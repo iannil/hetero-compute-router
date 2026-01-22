@@ -1,0 +1,94 @@
+name: Helm Lint
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'chart/**'
+  pull_request:
+    paths:
+      - 'chart/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Lint Helm chart
+        run: helm lint chart/hcs
+
+      - name: Template test (default values)
+        run: helm template hcs chart/hcs --debug > /dev/null
+
+      - name: Template test (dev values)
+        run: helm template hcs chart/hcs -f chart/hcs/values-dev.yaml --debug > /dev/null
+
+      - name: Template test (prod values)
+        run: helm template hcs chart/hcs -f chart/hcs/values-prod.yaml --debug > /dev/null
+
+  chart-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.1
+
+      - name: List changed charts
+        id: list-changed
+        run: |
+          changed=$(ct list-changed --config ct.yaml 2>/dev/null || echo "chart/hcs")
+          if [[ -n "$changed" ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run chart-testing (lint)
+        run: ct lint --charts chart/hcs --config ct.yaml || helm lint chart/hcs
+
+  # Validate Kubernetes manifests
+  kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Install kubeconform
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate rendered manifests
+        run: |
+          helm template hcs chart/hcs | kubeconform -strict -summary -output json \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -skip CustomResourceDefinition

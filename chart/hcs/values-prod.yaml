@@ -1,0 +1,78 @@
+# Production environment values for HCS
+# Usage: helm install hcs chart/hcs -f chart/hcs/values-prod.yaml
+
+global:
+  namespace: hcs-system
+
+nodeAgent:
+  logLevel: info
+  reportInterval: 30
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+scheduler:
+  replicas: 3  # HA setup
+  logLevel: info
+  leaderElection:
+    enabled: true
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: scheduler
+            topologyKey: kubernetes.io/hostname
+
+webhook:
+  replicas: 3  # HA setup
+  logLevel: info
+  failurePolicy: Fail  # Strict enforcement in prod
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: webhook
+            topologyKey: kubernetes.io/hostname
+
+interceptor:
+  enabled: true
+
+# Enable monitoring in prod
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+# Enable network policies in prod
+networkPolicy:
+  enabled: true
+
+# Pod security
+podSecurityStandards:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault

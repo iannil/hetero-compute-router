@@ -1,0 +1,213 @@
+# Hetero-Compute-Router (HCS) Helm Chart Values
+# Default configuration for development environment
+
+# Global settings
+global:
+  # Image registry prefix (e.g., "ghcr.io/zrs-products")
+  imageRegistry: ""
+  # Image pull secrets
+  imagePullSecrets: []
+  # Namespace (if not using release namespace)
+  namespace: ""
+
+# Node Agent - DaemonSet running on all GPU nodes
+nodeAgent:
+  enabled: true
+
+  image:
+    repository: hcs/node-agent
+    tag: ""  # Defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Node selector for targeting GPU nodes
+  nodeSelector: {}
+  #   accelerator: nvidia-gpu
+
+  # Tolerations for GPU nodes
+  tolerations:
+    - operator: Exists
+      effect: NoSchedule
+
+  # Affinity rules
+  affinity: {}
+
+  # Log level (debug, info, warn, error)
+  logLevel: info
+
+  # Report interval in seconds
+  reportInterval: 30
+
+  # Service account
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+
+# Scheduler - Deployment for HCS scheduling extension
+scheduler:
+  enabled: true
+
+  # Number of replicas
+  replicas: 1
+
+  image:
+    repository: hcs/scheduler
+    tag: ""  # Defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity rules
+  affinity: {}
+
+  # Log level
+  logLevel: info
+
+  # Scheduler configuration
+  config:
+    # Enable topology-aware scheduling
+    topologyAware: true
+    # Fragmentation optimization weight
+    fragmentationWeight: 0.3
+    # Health score weight
+    healthScoreWeight: 0.2
+
+  # Service account
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+
+# Webhook - Deployment for mutating/validating webhook
+webhook:
+  enabled: true
+
+  # Number of replicas (recommend 2+ for HA)
+  replicas: 2
+
+  image:
+    repository: hcs/webhook
+    tag: ""  # Defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity rules
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: webhook
+            topologyKey: kubernetes.io/hostname
+
+  # Log level
+  logLevel: info
+
+  # Service configuration
+  service:
+    port: 443
+    targetPort: 9443
+
+  # TLS certificate management
+  certManager:
+    # Use cert-manager for TLS certificates
+    enabled: true
+    # Issuer kind (Issuer or ClusterIssuer)
+    issuerKind: Issuer
+    # Issuer name (leave empty to use self-signed issuer created by chart)
+    issuerName: ""
+
+  # Manual TLS (if certManager.enabled is false)
+  tls:
+    # Secret name containing tls.crt and tls.key
+    secretName: ""
+
+  # Default vendor for injection
+  defaultVendor: nvidia
+
+  # Namespaces to ignore (system namespaces)
+  ignoredNamespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - cert-manager
+
+  # Service account
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+
+# Interceptor library settings
+interceptor:
+  # Enable interceptor injection
+  enabled: true
+  # Path to interceptor library on host
+  hostPath: /usr/local/hcs/lib
+  # Library filename
+  libraryName: libhcs_interceptor.so
+
+# CRD installation
+crds:
+  # Install CRDs (set to false if managing CRDs separately)
+  install: true
+
+# Pod Security Standards
+podSecurityStandards:
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+# Network policies
+networkPolicy:
+  # Enable network policies
+  enabled: false
+
+# Service monitor for Prometheus
+serviceMonitor:
+  # Enable ServiceMonitor
+  enabled: false
+  # Scrape interval
+  interval: 30s
+  # Labels for Prometheus operator discovery
+  labels: {}

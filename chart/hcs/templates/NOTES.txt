@@ -1,0 +1,58 @@
+{{- $fullname := include "hcs.fullname" . -}}
+{{- $namespace := include "hcs.namespace" . -}}
+
+=======================================================
+  Hetero-Compute-Router (HCS) has been installed!
+=======================================================
+
+{{- if .Values.nodeAgent.enabled }}
+Node Agent:
+  - DaemonSet: {{ $fullname }}-node-agent
+  - Collects GPU/NPU hardware information from all nodes
+  - Reports ComputeNode resources to the cluster
+{{- end }}
+
+{{- if .Values.scheduler.enabled }}
+Scheduler:
+  - Deployment: {{ $fullname }}-scheduler
+  - Scheduler name: hcs-scheduler
+  - Use schedulerName: hcs-scheduler in your Pod spec
+{{- end }}
+
+{{- if .Values.webhook.enabled }}
+Webhook:
+  - Deployment: {{ $fullname }}-webhook
+  - Service: {{ include "hcs.webhook.serviceName" . }}
+  - Automatically injects runtime environments for AI workloads
+{{- end }}
+
+To verify the installation:
+
+  # Check all HCS pods
+  kubectl get pods -n {{ $namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+  # Check ComputeNode resources
+  kubectl get computenodes
+
+  # View detailed compute node info
+  kubectl describe computenode <node-name>
+
+To use HCS scheduling for your workloads:
+
+  1. Add the scheduler name to your Pod spec:
+     spec:
+       schedulerName: hcs-scheduler
+
+  2. Request abstract compute resources:
+     resources:
+       requests:
+         ai.compute/vram: "16Gi"
+         ai.compute/tflops-fp16: "100"
+
+For more information, visit:
+  https://github.com/zrs-io/hetero-compute-router
+
+{{- if .Values.webhook.certManager.enabled }}
+NOTE: This installation uses cert-manager for TLS certificate management.
+      Ensure cert-manager is installed in your cluster.
+{{- end }}

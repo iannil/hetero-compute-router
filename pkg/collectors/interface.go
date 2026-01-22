@@ -8,11 +8,14 @@ import (
 
 // Collector 指标采集器接口
 type Collector interface {
+	// Name 返回采集器名称
+	Name() string
+
 	// Collect 采集指标
-	Collect(ctx context.Context, device *detectors.Device) (*Metrics, error)
+	Collect(ctx context.Context, devices []*detectors.Device, topology *detectors.Topology) (*Metrics, error)
 }
 
-// Metrics 设备指标
+// Metrics 设备指标（包含所有设备的聚合信息）
 type Metrics struct {
 	// 指纹信息
 	Fingerprint *FingerprintMetrics
@@ -22,15 +25,26 @@ type Metrics struct {
 
 	// 拓扑信息
 	Topology *TopologyMetrics
+
+	// 每个设备的详细指标
+	DeviceMetrics []DeviceMetric
+}
+
+// DeviceMetric 单个设备的指标
+type DeviceMetric struct {
+	DeviceID    string
+	Fingerprint *FingerprintMetrics
+	Health      *HealthMetrics
 }
 
 // FingerprintMetrics 算力指纹指标
 type FingerprintMetrics struct {
 	VRAMTotal      uint64 // bytes
 	VRAMUsed       uint64 // bytes
+	VRAMFree       uint64 // bytes
 	ComputeCap     ComputeMetrics
 	Interconnect   string // NVLink, HCCS, PCIe
-	InterconnectBw uint64 // MB/s
+	InterconnectBw uint64 // GB/s
 }
 
 // ComputeMetrics 计算性能指标
@@ -64,6 +78,40 @@ type TopologyMetrics struct {
 type PeerInfo struct {
 	DeviceID string
 	LinkType string // NVLink, HCCS, PCIe, QPI
-	LinkBw   uint64 // MB/s
+	LinkBw   uint64 // GB/s
 	Hops     int    // 跳数
+}
+
+// AggregatedMetrics 聚合后的节点级指标
+type AggregatedMetrics struct {
+	TotalVRAM        uint64
+	TotalVRAMUsed    uint64
+	TotalVRAMFree    uint64
+	TotalFP16FLOPS   uint64
+	TotalFP32FLOPS   uint64
+	AvgHealthScore   float64
+	DeviceCount      int
+	InterconnectType string
+}
+
+// Aggregate 聚合多个设备的指标
+func (m *Metrics) Aggregate() *AggregatedMetrics {
+	agg := &AggregatedMetrics{}
+
+	if m.Fingerprint != nil {
+		agg.TotalVRAM = m.Fingerprint.VRAMTotal
+		agg.TotalVRAMUsed = m.Fingerprint.VRAMUsed
+		agg.TotalVRAMFree = m.Fingerprint.VRAMFree
+		agg.TotalFP16FLOPS = m.Fingerprint.ComputeCap.FP16TFLOPS
+		agg.TotalFP32FLOPS = m.Fingerprint.ComputeCap.FP32TFLOPS
+		agg.InterconnectType = m.Fingerprint.Interconnect
+	}
+
+	if m.Health != nil {
+		agg.AvgHealthScore = m.Health.Score
+	}
+
+	agg.DeviceCount = len(m.DeviceMetrics)
+
+	return agg
 }

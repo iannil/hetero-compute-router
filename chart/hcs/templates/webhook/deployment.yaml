@@ -1,0 +1,81 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hcs.fullname" . }}-webhook
+  namespace: {{ include "hcs.namespace" . }}
+  labels:
+    {{- include "hcs.webhook.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.webhook.replicas }}
+  selector:
+    matchLabels:
+      {{- include "hcs.webhook.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hcs.webhook.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "hcs.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "hcs.webhook.serviceAccountName" . }}
+      {{- if .Values.podSecurityStandards.securityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityStandards.securityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: webhook
+          image: {{ include "hcs.webhook.image" . }}
+          imagePullPolicy: {{ .Values.webhook.image.pullPolicy }}
+          args:
+            - --port=8443
+            - --log-level={{ .Values.webhook.logLevel }}
+            - --tls-cert-file=/etc/webhook/certs/tls.crt
+            - --tls-key-file=/etc/webhook/certs/tls.key
+            {{- if .Values.interceptor.enabled }}
+            - --interceptor-enabled=true
+            - --interceptor-host-path={{ .Values.interceptor.hostPath }}
+            {{- end }}
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.webhook.resources | nindent 12 }}
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /etc/webhook/certs
+              readOnly: true
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: {{ include "hcs.webhook.tlsSecretName" . }}
+      {{- with .Values.webhook.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhook.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webhook.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

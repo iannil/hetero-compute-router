@@ -13,12 +13,18 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binaries
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags="-w -s" -o node-agent ./cmd/node-agent
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags="-w -s" -o scheduler ./cmd/scheduler
+# Build node-agent binary
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -a -ldflags="-w -s" -o node-agent ./cmd/node-agent
 
-# Final stage - node-agent
+# Final stage
 FROM alpine:latest
+
+LABEL org.opencontainers.image.source="https://github.com/zrs-io/hetero-compute-router"
+LABEL org.opencontainers.image.description="HCS Node Agent - Heterogeneous compute resource collector"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 RUN apk --no-cache add ca-certificates
 
