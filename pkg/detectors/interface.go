@@ -77,8 +77,9 @@ type TopologyLink struct {
 type LinkType string
 
 const (
-	LinkTypeNVLink  LinkType = "NVLink"
-	LinkTypeHCCS    LinkType = "HCCS"
-	LinkTypePCIe    LinkType = "PCIe"
-	LinkTypeUnknown LinkType = "Unknown"
+	LinkTypeNVLink   LinkType = "NVLink"
+	LinkTypeHCCS     LinkType = "HCCS"
+	LinkTypeXGMI     LinkType = "xGMI"
+	LinkTypePCIe     LinkType = "PCIe"
+	LinkTypeUnknown  LinkType = "Unknown"
 )
