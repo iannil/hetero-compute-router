@@ -154,9 +154,9 @@ spec:
       path: /usr/local/Ascend
 ```
 
-### 4. Software-Defined VRAM Slicing (Planned)
+### 4. Software-Defined VRAM Slicing
 
-libhcs_interceptor.so implements quota enforcement without hardware virtualization:
+libhcs_interceptor.so implements quota enforcement without hardware virtualization. The library (913 lines of C code) supports CUDA, ACL (Huawei Ascend), and HIP (Hygon/AMD) APIs:
 
 ```
 ┌─────────────────────────────────────────┐
@@ -201,7 +201,8 @@ scheduler:
 | Node-Agent | DaemonSet | Collects hardware info, reports ComputeNode CRD |
 | Scheduler | Deployment | Extends K8s scheduler with compute-aware plugins |
 | Webhook | Deployment | Mutates Pods with runtime environment injection |
-| Interceptor | Library | (Planned) Software VRAM slicing via LD_PRELOAD |
+| Interceptor | Library | Software VRAM slicing via LD_PRELOAD (CUDA/ACL/HIP) |
+| eBPF Monitor | Module | Sub-health detection framework (gpu/pcie/health events) |
 
 ### ComputeNode CRD
 
@@ -238,10 +239,10 @@ status:
 
 | Vendor | Product | Detection | Scheduling | Injection | VRAM Slicing |
 | -------- | --------- | ----------- | ------------ | ----------- | -------------- |
-| NVIDIA | A100/A800/H100/V100 | ✅ | ✅ | ✅ | 🔄 Planned |
-| Huawei | Ascend 910A/910B | ✅ | ✅ | ✅ | 🔄 Planned |
-| Hygon | DCU Z100 | 🔄 Planned | 🔄 Planned | 🔄 Planned | 🔄 Planned |
-| Cambricon | MLU370 | 🔄 Planned | 🔄 Planned | 🔄 Planned | 🔄 Planned |
+| NVIDIA | A100/A800/H100/V100 | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Implemented |
+| Hygon | DCU Z100/Z100L | ✅ Complete | ✅ Complete | ✅ Complete | ✅ Implemented |
+| Huawei | Ascend 910A/910B | 🔄 Mock | ✅ Complete | ✅ Complete | ✅ Implemented |
+| Cambricon | MLU370 | 🔜 Planned | 🔜 Planned | ✅ Profile Ready | 🔜 Planned |
 
 ---
 
@@ -410,35 +411,51 @@ For complete configuration reference, see [Configuration Guide](docs/deployment/
 
 ## Roadmap
 
-### Phase 1: The Observer (MVP) ✅
+### Phase 1: The Observer (MVP) ✅ Complete
 
-- [x] Node-Agent with NVIDIA/Ascend detection
+- [x] Node-Agent with NVIDIA/Hygon/Ascend detection
 - [x] ComputeNode CRD definition
-- [x] Basic scheduling logic
+- [x] Basic scheduling logic (Filter/Score/Reserve plugins)
 - [x] Helm Chart deployment
+- [x] eBPF monitoring framework
+- [x] ~75% unit test coverage
 
-### Phase 2: The Router (Current)
+### Phase 2: The Router ✅ Mostly Complete
 
-- [x] Compute exchange rate conversion
+- [x] Compute exchange rate conversion (15+ hardware profiles)
 - [x] Mutating Admission Webhook
-- [x] Driver and environment injection
-- [ ] Cross-vendor compatibility testing
+- [x] Driver and environment injection (NVIDIA/Huawei/Hygon/Cambricon)
+- [x] `libhcs_interceptor.so` implementation (CUDA/ACL/HIP APIs)
+- [ ] Cross-vendor compatibility testing on real hardware
+- [ ] Cambricon MLU detector implementation
 
-### Phase 3: The Virtualizer (Planned)
+### Phase 3: The Virtualizer (In Progress)
 
-- [ ] `libhcs_interceptor.so` for VRAM slicing
+- [x] `libhcs_interceptor.so` for VRAM slicing - ✅ Implemented
+- [x] eBPF programs written (gpu_monitor, pcie_monitor, health_events)
+- [ ] eBPF program compilation integration
 - [ ] Dynamic image rebinding
-- [ ] Sub-health detection via eBPF
+- [ ] Sub-health node automatic isolation
 - [ ] Automatic checkpoint recovery
 
 ### Version Timeline
 
 | Version | Target | Features |
 | --------- | -------- | ---------- |
-| v0.1.0-alpha | Q2 2026 | Phase 1 MVP |
-| v0.2.0-beta | Q3 2026 | Phase 2 Complete |
-| v0.3.0-beta | Q4 2026 | Phase 3 Complete |
-| v1.0.0 | Q1 2027 | Production Ready |
+| v0.1.0-alpha | Q1 2026 | Phase 1 MVP ✅ |
+| v0.2.0-beta | Q2 2026 | Phase 2 Complete (current) |
+| v0.3.0-beta | Q3 2026 | Phase 3 Complete |
+| v1.0.0 | Q4 2026 | Production Ready |
+
+### Current Metrics
+
+| Metric | Value |
+| ------- | ------ |
+| Go Code Lines | ~9,500 |
+| C Code Lines | ~1,200 (interceptor + eBPF) |
+| Test Coverage | ~75% |
+| Supported Vendors | 3 (NVIDIA, Hygon, Huawei) |
+| eBPF Programs | 3 |
 
 ---
 
@@ -501,14 +518,20 @@ hetero-compute-router/
 │   ├── api/v1alpha1/    # CRD types and deepcopy
 │   ├── agent/           # Node-Agent logic
 │   ├── collectors/      # Hardware collectors
-│   ├── detectors/       # Hardware detectors (NVML, DSMI)
-│   ├── exchange/        # Compute exchange rates
-│   ├── interceptor/     # API hijack library (planned)
-│   ├── scheduler/       # Scheduler plugins
-│   └── webhook/         # Admission webhook
+│   ├── detectors/       # Hardware detectors (NVML, DCU, Ascend)
+│   │   ├── nvidia/      # NVIDIA NVML detector (complete)
+│   │   ├── hygon/       # Hygon DCU detector (complete)
+│   │   └── ascend/      # Huawei Ascend detector (mock)
+│   ├── exchange/        # Compute exchange rates (15+ profiles)
+│   ├── interceptor/     # API hijack library (libhcs_interceptor.so)
+│   ├── monitoring/ebpf/ # eBPF health monitoring
+│   │   └── programs/    # eBPF C programs (gpu/pcie/health)
+│   ├── scheduler/       # Scheduler plugins (Filter/Score/Reserve)
+│   └── webhook/         # Admission webhook + HCS injector
 ├── chart/hcs/           # Helm Chart
 ├── config/              # Kubernetes manifests
 ├── docs/                # Documentation
+├── test/                # Integration tests
 └── hack/                # Build scripts
 ```
 

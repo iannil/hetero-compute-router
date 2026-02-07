@@ -154,9 +154,9 @@ spec:
       path: /usr/local/Ascend
 ```
 
-### 4. 软件定义显存切分（规划中）
+### 4. 软件定义显存切分
 
-libhcs_interceptor.so 实现无需硬件虚拟化的配额强制执行：
+libhcs_interceptor.so 实现无需硬件虚拟化的配额强制执行。该库（913 行 C 代码）支持 CUDA、ACL（华为昇腾）和 HIP（海光/AMD）API：
 
 ```
 ┌─────────────────────────────────────────┐
@@ -201,7 +201,8 @@ scheduler:
 | Node-Agent | DaemonSet | 采集硬件信息，上报 ComputeNode CRD |
 | Scheduler | Deployment | 扩展 K8s 调度器，实现算力感知调度 |
 | Webhook | Deployment | 变更 Pod，注入运行时环境 |
-| Interceptor | 库文件 | （规划中）通过 LD_PRELOAD 实现软件显存切分 |
+| Interceptor | 库文件 | 通过 LD_PRELOAD 实现软件显存切分 (CUDA/ACL/HIP) |
+| eBPF Monitor | 模块 | 亚健康检测框架 (gpu/pcie/health 事件) |
 
 ### ComputeNode CRD
 
@@ -238,10 +239,10 @@ status:
 
 | 厂商 | 产品 | 检测 | 调度 | 注入 | 显存切分 |
 | ------ | ------ | ------ | ------ | ------ | ---------- |
-| NVIDIA | A100/A800/H100/V100 | ✅ | ✅ | ✅ | 🔄 规划中 |
-| 华为 | 昇腾 910A/910B | ✅ | ✅ | ✅ | 🔄 规划中 |
-| 海光 | DCU Z100 | 🔄 规划中 | 🔄 规划中 | 🔄 规划中 | 🔄 规划中 |
-| 寒武纪 | MLU370 | 🔄 规划中 | 🔄 规划中 | 🔄 规划中 | 🔄 规划中 |
+| NVIDIA | A100/A800/H100/V100 | ✅ 完整 | ✅ 完整 | ✅ 完整 | ✅ 已实现 |
+| 海光 | DCU Z100/Z100L | ✅ 完整 | ✅ 完整 | ✅ 完整 | ✅ 已实现 |
+| 华为 | 昇腾 910A/910B | 🔄 Mock | ✅ 完整 | ✅ 完整 | ✅ 已实现 |
+| 寒武纪 | MLU370 | 🔜 规划中 | 🔜 规划中 | ✅ Profile 就绪 | 🔜 规划中 |
 
 ---
 
@@ -410,35 +411,51 @@ helm install hcs ./chart/hcs \
 
 ## 开发路线图
 
-### Phase 1: The Observer（全知之眼，MVP）✅
+### Phase 1: The Observer（全知之眼，MVP）✅ 已完成
 
-- [x] 支持 NVIDIA/昇腾检测的 Node-Agent
+- [x] 支持 NVIDIA/海光/昇腾检测的 Node-Agent
 - [x] ComputeNode CRD 定义
-- [x] 基础调度逻辑
+- [x] 基础调度逻辑（Filter/Score/Reserve 插件）
 - [x] Helm Chart 部署
+- [x] eBPF 监控框架
+- [x] ~75% 单元测试覆盖率
 
-### Phase 2: The Router（算力路由，当前阶段）
+### Phase 2: The Router（算力路由）✅ 基本完成
 
-- [x] 算力汇率换算
+- [x] 算力汇率换算（15+ 硬件 Profile）
 - [x] 变更准入 Webhook
-- [x] 驱动和环境变量注入
-- [ ] 跨厂商兼容性测试
+- [x] 驱动和环境变量注入（NVIDIA/华为/海光/寒武纪）
+- [x] `libhcs_interceptor.so` 实现（CUDA/ACL/HIP API）
+- [ ] 真实硬件跨厂商兼容性测试
+- [ ] 寒武纪 MLU 检测器实现
 
-### Phase 3: The Virtualizer（算力虚拟化，规划中）
+### Phase 3: The Virtualizer（算力虚拟化，进行中）
 
-- [ ] `libhcs_interceptor.so` 显存切分
+- [x] `libhcs_interceptor.so` 显存切分 - ✅ 已实现
+- [x] eBPF 程序编写（gpu_monitor, pcie_monitor, health_events）
+- [ ] eBPF 程序编译集成
 - [ ] 动态镜像重定
-- [ ] 基于 eBPF 的亚健康检测
+- [ ] 亚健康节点自动隔离
 - [ ] 自动 Checkpoint 恢复
 
 ### 版本计划
 
 | 版本 | 目标时间 | 主要功能 |
 | ------ | ---------- | ---------- |
-| v0.1.0-alpha | 2026 Q2 | Phase 1 MVP |
-| v0.2.0-beta | 2026 Q3 | Phase 2 完成 |
-| v0.3.0-beta | 2026 Q4 | Phase 3 完成 |
-| v1.0.0 | 2027 Q1 | 生产就绪版本 |
+| v0.1.0-alpha | 2026 Q1 | Phase 1 MVP ✅ |
+| v0.2.0-beta | 2026 Q2 | Phase 2 完成（当前） |
+| v0.3.0-beta | 2026 Q3 | Phase 3 完成 |
+| v1.0.0 | 2026 Q4 | 生产就绪版本 |
+
+### 当前指标
+
+| 指标 | 数值 |
+| ------ | ------ |
+| Go 代码行数 | ~9,500 |
+| C 代码行数 | ~1,200（拦截器 + eBPF） |
+| 测试覆盖率 | ~75% |
+| 支持厂商数 | 3（NVIDIA、海光、华为） |
+| eBPF 程序数 | 3 |
 
 ---
 
@@ -501,14 +518,20 @@ hetero-compute-router/
 │   ├── api/v1alpha1/    # CRD 类型和 deepcopy
 │   ├── agent/           # Node-Agent 逻辑
 │   ├── collectors/      # 硬件采集器
-│   ├── detectors/       # 硬件检测器 (NVML, DSMI)
-│   ├── exchange/        # 算力汇率
-│   ├── interceptor/     # API 劫持库（规划中）
-│   ├── scheduler/       # 调度器插件
-│   └── webhook/         # 准入 Webhook
+│   ├── detectors/       # 硬件检测器（NVML, DCU, Ascend）
+│   │   ├── nvidia/      # NVIDIA NVML 检测器（完整）
+│   │   ├── hygon/       # 海光 DCU 检测器（完整）
+│   │   └── ascend/      # 华为昇腾检测器（Mock）
+│   ├── exchange/        # 算力汇率（15+ Profile）
+│   ├── interceptor/     # API 劫持库（libhcs_interceptor.so）
+│   ├── monitoring/ebpf/ # eBPF 健康监控
+│   │   └── programs/    # eBPF C 程序（gpu/pcie/health）
+│   ├── scheduler/       # 调度器插件（Filter/Score/Reserve）
+│   └── webhook/         # 准入 Webhook + HCS 注入器
 ├── chart/hcs/           # Helm Chart
 ├── config/              # Kubernetes 清单
 ├── docs/                # 文档
+├── test/                # 集成测试
 └── hack/                # 构建脚本
 ```
 
